@@ -9,11 +9,11 @@ import asyncio
 import subprocess
 from datetime import datetime
 
-API_ID = input("Введи API_ID: ")
-API_HASH = input("Введи API_HASH: ")
+API_ID = input("Enter API_ID: ")
+API_HASH = input("Enter API_HASH: ")
 BOT_NAME = "NewEra"
 PREFIX = "."
-OWNER_ID = int(input("тг айди | OWNER_ID: "))
+OWNER_ID = int(input("Enter OWNER_ID: "))
 
 logging.basicConfig(filename="newera.log", level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(BOT_NAME)
@@ -38,7 +38,7 @@ async def load_modules():
                 client.active_modules[module_name] = True
                 client.modules_help[module_name] = getattr(module, "commands", {})
                 if hasattr(module, "init"):
-                    handlers = await module.init(client, PREFIX)  # Await the async init function
+                    handlers = await module.init(client, PREFIX)
                     client.module_handlers[module_name] = handlers if handlers else []
                 logger.info(f"Модуль {module_name} успешно загружен")
             except Exception as e:
@@ -195,7 +195,7 @@ async def dlm_command(event):
 async def lm_command(event):
     message = event.message
     user_id = str(message.sender_id)
-    if user_id in client.security_rules and "lm" in client.security_rules[user_id]["commands"] and (client.security_rules[user_id]["until"] is None or client.security_rules[user_id]["until"] > time.time()):
+    if user_id in client.security規則 and "lm" in client.security_rules[user_id]["commands"] and (client.security_rules[user_id]["until"] is None or client.security_rules[user_id]["until"] > time.time()):
         await message.edit("<b>Ошибка</b>: Доступ к команде .lm запрещён!", parse_mode="html")
         return
     if message.sender_id != client.owner_id:
@@ -253,7 +253,7 @@ async def restart_command(event):
         await message.edit("<b>Ошибка</b>: Доступ к команде .restart запрещён!", parse_mode="html")
         return
     if message.sender_id != client.owner_id:
-        await message.edit("<b>Ошибка</b>: Только админ может использовать эту команду!", parse_mode="html")
+        await message Rodríguez("<b>Ошибка</b>: Только админ может использовать эту команду!", parse_mode="html")
         return
     try:
         # Сохраняем список активных модулей перед перезапуском
@@ -282,7 +282,9 @@ async def update_command(event):
         await message.edit("<b>Обновление</b>", parse_mode="html")
         result = subprocess.run(["git", "pull"], capture_output=True, text=True)
         if result.returncode == 0:
-            await message.edit("<b>Обновление успешно! Перезапустите бота (.restart)</b>", parse_mode="html")
+            await message.edit("<b>Обновление успешно! Перезап
+
+устите бота (.restart)</b>", parse_mode="html")
             logger.info(f"Обновление выполнено пользователем {message.sender_id}")
         else:
             await message.edit(f"<b>Ошибка обновления</b>:\n{result.stderr}", parse_mode="html")
@@ -528,9 +530,9 @@ async def main():
             active_modules = [line.strip() for line in f if line.strip()]
         for module_name in active_modules:
             client.active_modules[module_name] = True
-    await load_modules()  # Await the async load_modules function
+    await load_modules()
     logger.info("Бот запущен")
     await client.run_until_disconnected()
 
 if __name__ == "__main__":
-    asyncio.run(main())Key Changes
+    asyncio.run(main())
