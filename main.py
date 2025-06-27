@@ -9,16 +9,27 @@ import asyncio
 import subprocess
 from datetime import datetime
 
-API_ID = input("Enter API_ID: ")
-API_HASH = input("Enter API_HASH: ")
-BOT_NAME = "NewEra"
-PREFIX = "."
-OWNER_ID = int(input("Enter OWNER_ID: "))
+def print_ascii_art():
+    art = """
+    ╔════════════════════════════════════╗
+    ║       NewEraV4 Userbot Setup       ║
+    ║────────────────────────────────────║
+    ║  Enter your Telegram API details   ║
+    ╚════════════════════════════════════╝
+    """
+    print(art)
 
+print_ascii_art()
+API_ID = input("API ID: ")
+API_HASH = input("API HASH: ")
+OWNER_ID = int(input("OWNER ID: "))
+
+BOT_NAME = "NewEraV4"
+PREFIX = "."
 logging.basicConfig(filename="newera.log", level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(BOT_NAME)
 
-client = TelegramClient("NewEra", api_id=API_ID, api_hash=API_HASH)
+client = TelegramClient("NewEraV4", api_id=API_ID, api_hash=API_HASH)
 client.modules_help = {}
 client.active_modules = {}
 client.security_rules = {}
@@ -32,7 +43,7 @@ async def load_modules():
         if module_file.endswith("__init__.py"):
             continue
         module_name = os.path.basename(module_file).replace(".py", "").lower()
-        if module_name not in client.active_modules:  # Проверяем, не загружен ли уже модуль
+        if module_name not in client.active_modules:
             try:
                 module = importlib.import_module(f"modules.{module_name}")
                 client.active_modules[module_name] = True
@@ -68,7 +79,7 @@ async def help_command(event):
         args = message.text.split(maxsplit=1)
         if len(args) == 1:
             help_text = (
-                "<b>NewEra</b>\n"
+                "<b>NewEraV4</b>\n"
                 "──────────────────\n"
                 "<i>Список доступных команд:</i>\n"
                 "<b> | Главные</b>:\n"
@@ -139,19 +150,7 @@ async def cfg_command(event):
             await message.edit("<b>Использование</b>: <code>.cfg <module> <on/off></code>", parse_mode="html")
             return
         state = args[2].lower() == "on"
-        if state and not client.active_modules.get(module_name, False):
-            try:
-                module = importlib.import_module(f"modules.{module_name}")
-                client.active_modules[module_name] = True
-                if hasattr(module, "init"):
-                    handlers = await module.init(client, PREFIX)
-                    client.module_handlers[module_name] = handlers if handlers else []
-            except Exception as e:
-                await message.edit(f"<b>Ошибка</b>: Не удалось включить модуль {module_name}: {e}", parse_mode="html")
-                logger.error(f"Ошибка включения модуля {module_name}: {e}")
-                return
-        elif not state and client.active_modules.get(module_name, False):
-            unload_module(module_name)
+        client.active_modules[module_name] = state
         await message.edit(f"<b>Модуль {module_name.capitalize()} {'включён' if state else 'выключен'}</b>", parse_mode="html")
         logger.info(f"Модуль {module_name} {'включён' if state else 'выключен'} пользователем {message.sender_id}")
     except Exception as e:
@@ -175,14 +174,11 @@ async def dlm_command(event):
             return
         module_name = args[1].lower()
         if os.path.exists(f"modules/{module_name}.py"):
-            unload_module(module_name)  # Выгружаем модуль, если он уже загружен
             module = importlib.import_module(f"modules.{module_name}")
             importlib.reload(module)
             client.active_modules[module_name] = True
             client.modules_help[module_name] = getattr(module, "commands", {})
-            if hasattr(module, "init"):
-                handlers = await module.init(client, PREFIX)
-                client.module_handlers[module_name] = handlers if handlers else []
+            asyncio.create_task(module.init(client, PREFIX))
             await message.edit(f"<b>Модуль {module_name.capitalize()} загружен</b>", parse_mode="html")
             logger.info(f"Модуль {module_name} загружен пользователем {message.sender_id}")
         else:
@@ -191,32 +187,34 @@ async def dlm_command(event):
         await message.edit(f"<b>Ошибка</b>: {e}", parse_mode="html")
         logger.error(f"Ошибка команды .dlm: {e}")
 
-@client.on(events.NewMessage(outgoing=True))
+@client.on(events.NewMessage(outgoing=True, pattern=r"^\.lm$"))
 async def lm_command(event):
     message = event.message
     user_id = str(message.sender_id)
-    if user_id in client.security規則 and "lm" in client.security_rules[user_id]["commands"] and (client.security_rules[user_id]["until"] is None or client.security_rules[user_id]["until"] > time.time()):
+    if user_id in client.security_rules and "lm" in client.security_rules[user_id]["commands"] and (client.security_rules[user_id]["until"] is None or client.security_rules[user_id]["until"] > time.time()):
         await message.edit("<b>Ошибка</b>: Доступ к команде .lm запрещён!", parse_mode="html")
         return
     if message.sender_id != client.owner_id:
         await message.edit("<b>Ошибка</b>: Только админ может использовать эту команду!", parse_mode="html")
         return
-    if not message.file or not message.file.name.endswith(".py"):
-        return  # Пропускаем, если нет файла или файл не .py
+    if not message.is_reply:
+        await message.edit("<b>Ошибка</b>: Ответьте на сообщение с файлом .py!", parse_mode="html")
+        return
     try:
-        module_name = message.file.name.replace(".py", "").lower()
-        await message.download_media(f"modules/{module_name}.py")
-        unload_module(module_name)  # Выгружаем модуль, если он уже загружен
+        replied_message = await message.get_reply_message()
+        if not replied_message.file or not replied_message.file.name.endswith(".py"):
+            await message.edit("<b>Ошибка</b>: Ответьте на сообщение с файлом .py!", parse_mode="html")
+            return
+        module_name = replied_message.file.name.replace(".py", "").lower()
+        await replied_message.download_media(f"modules/{module_name}.py")
         module = importlib.import_module(f"modules.{module_name}")
         client.active_modules[module_name] = True
         client.modules_help[module_name] = getattr(module, "commands", {})
-        if hasattr(module, "init"):
-            handlers = await module.init(client, PREFIX)
-            client.module_handlers[module_name] = handlers if handlers else []
-        await message.reply(f"<b>Модуль {module_name.capitalize()} загружен</b>", parse_mode="html")
+        asyncio.create_task(module.init(client, PREFIX))
+        await message.edit(f"<b>Модуль {module_name.capitalize()} загружен</b>", parse_mode="html")
         logger.info(f"Модуль {module_name} загружен из файла пользователем {message.sender_id}")
     except Exception as e:
-        await message.reply(f"<b>Ошибка</b>: {e}", parse_mode="html")
+        await message.edit(f"<b>Ошибка</b>: {e}", parse_mode="html")
         logger.error(f"Ошибка команды .lm: {e}")
 
 @client.on(events.NewMessage(outgoing=True, pattern=r"^\.ulm($| .*)"))
@@ -236,7 +234,7 @@ async def ulm_command(event):
             return
         module_name = args[1].lower()
         if module_name in client.active_modules:
-            unload_module(module_name)
+            client.active_modules[module_name] = False
             await message.edit(f"<b>Модуль {module_name.capitalize()} выгружен</b>", parse_mode="html")
             logger.info(f"Модуль {module_name} выгружен пользователем {message.sender_id}")
         else:
@@ -253,14 +251,9 @@ async def restart_command(event):
         await message.edit("<b>Ошибка</b>: Доступ к команде .restart запрещён!", parse_mode="html")
         return
     if message.sender_id != client.owner_id:
-        await message Rodríguez("<b>Ошибка</b>: Только админ может использовать эту команду!", parse_mode="html")
+        await message.edit("<b>Ошибка</b>: Только админ может использовать эту команду!", parse_mode="html")
         return
     try:
-        # Сохраняем список активных модулей перед перезапуском
-        with open("active_modules.txt", "w") as f:
-            for module, active in client.active_modules.items():
-                if active:
-                    f.write(f"{module}\n")
         await message.edit("<b>Перезапуск</b>", parse_mode="html")
         logger.info(f"Перезапуск бота пользователем {message.sender_id}")
         os.execv(sys.executable, ["python"] + sys.argv)
@@ -282,9 +275,7 @@ async def update_command(event):
         await message.edit("<b>Обновление</b>", parse_mode="html")
         result = subprocess.run(["git", "pull"], capture_output=True, text=True)
         if result.returncode == 0:
-            await message.edit("<b>Обновление успешно! Перезап
-
-устите бота (.restart)</b>", parse_mode="html")
+            await message.edit("<b>Обновление успешно! Перезапустите бота (.restart)</b>", parse_mode="html")
             logger.info(f"Обновление выполнено пользователем {message.sender_id}")
         else:
             await message.edit(f"<b>Ошибка обновления</b>:\n{result.stderr}", parse_mode="html")
@@ -448,7 +439,7 @@ async def info_command(event):
         await message.edit("<b>Ошибка</b>: Доступ к команде .info запрещён!", parse_mode="html")
         return
     info_text = (
-        "<b>Информация о NewEra</b>\n"
+        "<b>Информация о NewEraV4</b>\n"
         "──────────────────\n"
         f"<b>UB</b>: {BOT_NAME}++\n"
         f"<b>Telethon</b>: 1.30.3\n"
@@ -470,7 +461,7 @@ async def stats_command(event):
     uptime = int(time.time() - client.start_time)
     uptime_str = f"{uptime // 3600}ч {(uptime % 3600) // 60}м {uptime % 60}с"
     stats_text = (
-        "<b>NewEra</b>\n"
+        "<b>NewEraV4</b>\n"
         "──────────────────\n"
         f"<b>Время работы</b>: {uptime_str}\n"
         f"<b>Активных модулей</b>: {sum(1 for m in client.active_modules.values() if m)}\n"
@@ -507,12 +498,12 @@ async def session_command(event):
             return
         action = args[1].lower()
         if action == "generate":
-            new_session = TelegramClient(f"NewEra_{int(time.time())}", api_id=API_ID, api_hash=API_HASH)
+            new_session = TelegramClient(f"NewEraV4_{int(time.time())}", api_id=API_ID, api_hash=API_HASH)
             await new_session.connect()
             await message.edit("<b>Новая сессия сгенерирована! Проверьте файл сессии.</b>", parse_mode="html")
             logger.info(f"Новая сессия сгенерирована пользователем {message.sender_id}")
         elif action == "delete":
-            os.remove("NewEra.session")
+            os.remove("NewEraV4.session")
             await message.edit("<b>Сессия удалена! Перезапустите бота.</b>", parse_mode="html")
             logger.info(f"Сессия удалена пользователем {message.sender_id}")
         else:
@@ -523,13 +514,6 @@ async def session_command(event):
 
 async def main():
     await client.start()
-    # Загружаем список активных модулей из файла, если он существует
-    client.active_modules = {}
-    if os.path.exists("active_modules.txt"):
-        with open("active_modules.txt", "r") as f:
-            active_modules = [line.strip() for line in f if line.strip()]
-        for module_name in active_modules:
-            client.active_modules[module_name] = True
     await load_modules()
     logger.info("Бот запущен")
     await client.run_until_disconnected()
