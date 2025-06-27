@@ -15,6 +15,6 @@
 ### Установка
 1. Клонируйте репозиторий:
    ```bash
-   git clone https://github.com/Karniz-UI/newerav4
-   cd newerav4
+   git clone https://github.com/Karniz-UI/NewEraV4
+   cd NewEraV4
    python main.py
