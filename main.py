@@ -26,7 +26,7 @@ client.owner_id = OWNER_ID
 client.start_time = time.time()
 client.module_handlers = {}  # Для хранения обработчиков событий модулей
 
-def load_modules():
+async def load_modules():
     module_files = glob.glob("modules/*.py")
     for module_file in module_files:
         if module_file.endswith("__init__.py"):
@@ -38,7 +38,7 @@ def load_modules():
                 client.active_modules[module_name] = True
                 client.modules_help[module_name] = getattr(module, "commands", {})
                 if hasattr(module, "init"):
-                    handlers = await module.init(client, PREFIX)
+                    handlers = await module.init(client, PREFIX)  # Await the async init function
                     client.module_handlers[module_name] = handlers if handlers else []
                 logger.info(f"Модуль {module_name} успешно загружен")
             except Exception as e:
@@ -528,9 +528,9 @@ async def main():
             active_modules = [line.strip() for line in f if line.strip()]
         for module_name in active_modules:
             client.active_modules[module_name] = True
-    load_modules()
+    await load_modules()  # Await the async load_modules function
     logger.info("Бот запущен")
     await client.run_until_disconnected()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(main())Key Changes
